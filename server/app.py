@@ -5,7 +5,17 @@ from config import MONGO_URL
 
 app = Flask(__name__)
 
-CORS(app, origins=["http://localhost:5173","https://student-registration-frontend.vercel.app","http://127.0.0.1:5173"])
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["http://localhost:5173"],  # Your frontend URL
+        "methods": ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    },
+    r"/*": {  # Global fallback (optional but recommended)
+        "origins": ["http://localhost:5173"],
+        "methods": ["GET", "POST", "OPTIONS"]
+    }
+})
 
 
 # set up MongoDB connection
@@ -13,9 +23,24 @@ client = MongoClient(MONGO_URL)
 db = client["user_database"]
 students = db["students"]
 
+
+@app.route("/")
+def test():
+    return jsonify({"status": "API is running", "endpoints": {
+        "/api/register": "POST",
+        "/search/<matno>": "GET",
+        "/all/students": "GET"
+    }})
+
 # routes to handle requests
-@app.route("/api/register", methods=["POST"])
+@app.route("/api/register", methods=["POST","OPTIONS"])
 def register_student():
+    if request.method == "OPTIONS":
+        response = make_response()
+        response.headers["Access-Control-Allow-Origin"] = "http://localhost:5173"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return response
     data = request.get_json()
     fullname = data.get("fullname")
     age = data.get("age")
@@ -67,12 +92,7 @@ def get_all_students():
     return jsonify({"error":"Error fetching students"})
 
 
-# @app.after_request
-# def apply_cors_headers(response):
-#     response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
-#     response.headers.add("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-#     return response
   
 if __name__ == "__main__":
-  app.run(debug=True)
+  app.run(host="localhost", port=7000, debug=True)
   
